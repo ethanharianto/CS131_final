@@ -1,0 +1,9 @@
+data/
+outputs/
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.pdf
+!proposal.tex
+!milestone.tex
