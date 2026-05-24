@@ -5,7 +5,7 @@ __pycache__/
 .venv/
 venv/
 *.pdf
-!proposal.tex
-!milestone.tex
-!proposal.pdf
-!milestone.pdf
+*.tex
+*.aux
+*.log
+*.out
