@@ -80,7 +80,7 @@ def draw_team_overlay(
         cv2.rectangle(out, (b.left, b.top), (b.right, b.bottom), color, thickness)
         cv2.putText(
             out,
-            f"{team}:{track_id}",
+            team,
             (b.left, max(b.top - 6, 12)),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.5,
@@ -135,7 +135,7 @@ def save_baseline_vs_e2e(
         axes[0, j].imshow(cv2.cvtColor(frames_baseline[j], cv2.COLOR_BGR2RGB))
         axes[0, j].set_title(f"baseline, frame {fid}", fontsize=9)
         axes[1, j].imshow(cv2.cvtColor(frames_e2e[j], cv2.COLOR_BGR2RGB))
-        axes[1, j].set_title(f"M3 end-to-end, frame {fid}", fontsize=9)
+        axes[1, j].set_title(f"end-to-end, frame {fid}", fontsize=9)
     for ax in axes.ravel():
         ax.axis("off")
     fig.suptitle(title, fontsize=12)
@@ -191,7 +191,7 @@ def save_confusion_pair(
 
     a, b = to_array(cm_baseline), to_array(cm_e2e)
     fig, axes = plt.subplots(1, 2, figsize=(9, 4))
-    for ax, mat, name in zip(axes, (a, b), ("baseline", "M3 end-to-end")):
+    for ax, mat, name in zip(axes, (a, b), ("baseline", "end-to-end")):
         im = ax.imshow(mat, cmap="Blues", vmin=0, vmax=max(a.max(), b.max(), 1))
         ax.set_xticks(range(len(classes)))
         ax.set_yticks(range(len(classes)))
@@ -234,6 +234,77 @@ def save_training_curve(
     ax2.tick_params(axis="y", labelcolor="#3a7dbb")
     ax2.set_ylim(0, 1.0)
     fig.suptitle(title)
+    fig.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_ablation_bars(
+    labels: list[str],
+    purities: list[float],
+    ci_low: list[float | None],
+    ci_high: list[float | None],
+    out_path: Path,
+    *,
+    title: str,
+    ylabel: str = "Team purity (fraction correct)",
+    highlight: set[int] | None = None,
+    horizontal: bool = False,
+) -> None:
+    """Bar chart of ablation purities with optional 95% bootstrap error bars."""
+    n = len(labels)
+    x = np.arange(n)
+    purities = list(purities)
+    default_colors = ["#3a7dbb"] * n
+    if highlight:
+        for i in highlight:
+            default_colors[i] = "#d35f00"
+
+    fig, ax = plt.subplots(
+        figsize=(7, 4) if not horizontal else (7, 0.45 * n + 1.5),
+    )
+    if horizontal:
+        yerr = None
+        if any(ci_low) and any(ci_high):
+            lo = [p - (l if l is not None else p) for p, l in zip(purities, ci_low)]
+            hi = [(h if h is not None else p) - p for p, h in zip(purities, ci_high)]
+            yerr = np.array([lo, hi])
+        bars = ax.barh(x, purities, color=default_colors, xerr=yerr, capsize=3)
+        ax.set_yticks(x)
+        ax.set_yticklabels(labels, fontsize=9)
+        ax.set_xlim(0, 1.0)
+        ax.set_xlabel(ylabel)
+        for bar, p in zip(bars, purities):
+            ax.text(
+                min(p + 0.02, 0.98),
+                bar.get_y() + bar.get_height() / 2,
+                f"{100 * p:.1f}%",
+                va="center",
+                fontsize=8,
+            )
+    else:
+        yerr = None
+        if any(ci_low) and any(ci_high):
+            lo = [p - (l if l is not None else p) for p, l in zip(purities, ci_low)]
+            hi = [(h if h is not None else p) - p for p, h in zip(purities, ci_high)]
+            yerr = np.array([lo, hi])
+        bars = ax.bar(x, purities, color=default_colors, yerr=yerr, capsize=4)
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels)
+        ax.set_ylim(0, 1.0)
+        ax.set_ylabel(ylabel)
+        for bar, p in zip(bars, purities):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                min(p + 0.02, 0.98),
+                f"{100 * p:.1f}%",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+            )
+    ax.set_title(title)
+    ax.grid(axis="x" if horizontal else "y", alpha=0.3)
     fig.tight_layout()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=150, bbox_inches="tight")

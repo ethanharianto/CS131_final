@@ -26,6 +26,17 @@ from src.visualize import (
 )
 
 
+def publish_figures(fig_dir: Path) -> Path:
+    """Copy figures to a sequence-neutral path for reports and slides."""
+    import shutil
+
+    pub = config.OUTPUT_ROOT / "report_figures"
+    pub.mkdir(parents=True, exist_ok=True)
+    for src in sorted(fig_dir.glob("*.png")):
+        shutil.copy2(src, pub / src.name)
+    return pub
+
+
 def main() -> None:
     seq = config.SEQUENCE_NAME
     out_dir = config.OUTPUT_ROOT / seq
@@ -59,7 +70,7 @@ def main() -> None:
         yolo_boxes,
         gt_boxes_sample,
         fig_dir / "mog2_vs_yolo_panning.png",
-        title=f"{seq} frame {sample_frame_id}: MOG2 fails on panning broadcast, YOLO succeeds",
+        title=f"Frame {sample_frame_id}: MOG2 fails on panning broadcast, YOLO succeeds",
     )
 
     # 2) Team-colored overlay strip across the clip
@@ -81,7 +92,7 @@ def main() -> None:
     save_timeline_strip(
         overlays,
         fig_dir / "team_overlay_baseline.png",
-        title=f"{seq}: YOLO+IoU tracks colored by k-means majority-vote team",
+        title="YOLO + IoU tracks colored by per-track k-means team labels",
     )
 
     # 3) Baseline vs end-to-end (M3) side-by-side on same frames
@@ -103,7 +114,7 @@ def main() -> None:
         save_baseline_vs_e2e(
             base_panels, e2e_panels, compare_frames,
             fig_dir / "baseline_vs_e2e.png",
-            title=f"{seq}: per-track team predictions, baseline vs M3 end-to-end",
+            title="Per-track team predictions: classical baseline vs end-to-end CNN+BiLSTM",
         )
 
         # 4) Purity bar + confusion-matrix pair
@@ -117,7 +128,7 @@ def main() -> None:
             base_r = team_purity(team_labels, gt_clean)
             e2e_r = team_purity(e2e_labels, gt_clean)
             save_purity_bar(
-                {"baseline": base_r, "M3 end-to-end": e2e_r},
+                {"baseline": base_r, "end-to-end": e2e_r},
                 fig_dir / "purity_bar.png",
             )
             save_confusion_pair(
@@ -133,6 +144,8 @@ def main() -> None:
 
     for p in sorted(fig_dir.glob("*.png")):
         print(f"Wrote: {p}")
+    pub = publish_figures(fig_dir)
+    print(f"Published copies: {pub}")
 
 
 if __name__ == "__main__":

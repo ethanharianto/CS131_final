@@ -7,6 +7,11 @@ DATA_ROOT = ROOT / "data" / "dataset"
 OUTPUT_ROOT = ROOT / "outputs"
 
 SEQUENCE_NAME = "v_-6Os86HzwCs_c001"
+# Human-readable label for reports (SportsMOT internal IDs are not reader-friendly).
+SEQUENCE_TITLE = (
+    "Women's Asia Cup 2019 basketball clip from SportsMOT "
+    "(825 frames, about 33 seconds at 1280×720)"
+)
 SEQUENCE_SPLIT = "train"
 
 # Process a contiguous segment (frames are 1-indexed in MOT)

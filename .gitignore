@@ -4,8 +4,26 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+.mplconfig/
+
+# Course deliverables (demo, milestone, final — local only)
+demo*
+milestone*
+final*
+report_*
+
+# Report build scripts (local only)
+scripts/build_final_report.sh
+scripts/update_report_ablations.py
+scripts/sweep_e2e_ablations.py
+scripts/make_figures.py
+
+# LaTeX build artifacts
 *.pdf
 *.tex
 *.aux
 *.log
 *.out
+*.nav
+*.snm
+*.toc

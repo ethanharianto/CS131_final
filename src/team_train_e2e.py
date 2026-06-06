@@ -27,7 +27,7 @@ def set_seed(seed: int) -> None:
     torch.manual_seed(seed)
 
 
-def load_e2e_data(seq_dir: Path):
+def load_e2e_data(seq_dir: Path, max_seq_len: int | None = None):
     crops_npz = np.load(seq_dir / "crops.npz")
     crops = crops_npz["crops"]  # (N, H, W, 3) uint8
     track_ids = crops_npz["track_ids"]
@@ -54,8 +54,9 @@ def load_e2e_data(seq_dir: Path):
         if team not in TEAM_TO_IDX:
             continue
         entries.sort(key=lambda x: x[0])
-        if len(entries) > config.LSTM_MAX_SEQ_LEN:
-            idxs = np.linspace(0, len(entries) - 1, config.LSTM_MAX_SEQ_LEN, dtype=int)
+        cap = max_seq_len if max_seq_len is not None else config.LSTM_MAX_SEQ_LEN
+        if len(entries) > cap:
+            idxs = np.linspace(0, len(entries) - 1, cap, dtype=int)
             entries = [entries[i] for i in idxs]
         crop_idxs = [e[1] for e in entries]
         pos = np.stack([pos_lookup[(tid, e[0])] for e in entries], axis=0)
@@ -109,9 +110,16 @@ def train_model(
     holdout_track_ids: set[int] | None = None,
     epochs: int = config.E2E_EPOCHS,
     batch_size: int = 16,
+    *,
+    use_position: bool = True,
+    use_class_weights: bool = True,
+    feature_dim: int | None = None,
+    max_seq_len: int | None = None,
 ) -> tuple[TeamE2E, dict]:
     set_seed(config.LSTM_SEED)
-    seqs, positions, labels, lengths, tids = load_e2e_data(seq_dir)
+    feat_dim = feature_dim if feature_dim is not None else config.CNN_FEATURE_DIM
+    pos_dim = 4 if use_position else 0
+    seqs, positions, labels, lengths, tids = load_e2e_data(seq_dir, max_seq_len=max_seq_len)
     if holdout_track_ids:
         keep = [i for i, t in enumerate(tids) if t not in holdout_track_ids]
         seqs = [seqs[i] for i in keep]
@@ -126,13 +134,19 @@ def train_model(
     class_weights = torch.tensor(
         [total / (3 * max(c, 1)) for c in label_counts], dtype=torch.float32
     )
+    if not use_class_weights:
+        class_weights = None
+
+    if not use_position:
+        positions = [np.zeros((len(p), 0), dtype=np.float32) for p in positions]
 
     dataset = TrackDataset(seqs, positions, labels, lengths, tids)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=collate)
 
     model = TeamE2E(
-        feature_dim=config.CNN_FEATURE_DIM,
+        feature_dim=feat_dim,
         hidden_dim=config.LSTM_HIDDEN,
+        position_dim=pos_dim,
         dropout=config.E2E_DROPOUT,
     )
     opt = torch.optim.Adam(
@@ -163,13 +177,25 @@ def train_model(
         "epochs": epochs,
         "n_train_tracks": len(seqs),
         "supervision": "per-track baseline label (class-weighted CE)",
-        "class_weights": class_weights.tolist(),
+        "use_position": use_position,
+        "use_class_weights": use_class_weights,
+        "feature_dim": feat_dim,
+        "max_seq_len": max_seq_len if max_seq_len is not None else config.LSTM_MAX_SEQ_LEN,
+        "class_weights": class_weights.tolist() if class_weights is not None else None,
         "history": history,
     }
 
 
-def predict(model: TeamE2E, seq_dir: Path) -> dict[int, dict]:
-    seqs, positions, labels, lengths, tids = load_e2e_data(seq_dir)
+def predict(
+    model: TeamE2E,
+    seq_dir: Path,
+    *,
+    use_position: bool = True,
+    max_seq_len: int | None = None,
+) -> dict[int, dict]:
+    seqs, positions, labels, lengths, tids = load_e2e_data(seq_dir, max_seq_len=max_seq_len)
+    if not use_position:
+        positions = [np.zeros((len(p), 0), dtype=np.float32) for p in positions]
     dataset = TrackDataset(seqs, positions, labels, lengths, tids)
     loader = DataLoader(dataset, batch_size=16, shuffle=False, collate_fn=collate)
 

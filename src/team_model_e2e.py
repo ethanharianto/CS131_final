@@ -74,7 +74,10 @@ class TeamE2E(nn.Module):
         B, T = crops.size(0), crops.size(1)
         flat_crops = crops.reshape(B * T, *crops.shape[2:])
         feats = self.encoder(flat_crops).reshape(B, T, -1)
-        x = torch.cat([feats, positions], dim=-1)
+        if positions.numel() > 0 and positions.size(-1) > 0:
+            x = torch.cat([feats, positions], dim=-1)
+        else:
+            x = feats
 
         packed = nn.utils.rnn.pack_padded_sequence(
             x, lengths.cpu(), batch_first=True, enforce_sorted=False

@@ -59,3 +59,49 @@ def team_purity(
 
 def gt_team_distribution(gt: dict[int, str]) -> dict[str, int]:
     return dict(Counter(gt.values()))
+
+
+def bootstrap_purity_ci(
+    predicted: dict[int, str],
+    gt: dict[int, str],
+    *,
+    n_bootstrap: int = 10_000,
+    ci: float = 0.95,
+    seed: int = 0,
+) -> dict[str, float]:
+    """Stratified bootstrap CI for overall team purity on labeled tracks."""
+    import random
+
+    rng = random.Random(seed)
+    labeled = [(tid, g) for tid, g in gt.items() if g in ("A", "B", "other")]
+    if len(labeled) < 2:
+        p = team_purity(predicted, gt)["overall_purity"]
+        return {"overall_purity": p, "ci_low": p, "ci_high": p, "n_bootstrap": 0}
+
+    by_class: dict[str, list[tuple[int, str]]] = {"A": [], "B": [], "other": []}
+    for tid, g in labeled:
+        by_class[g].append((tid, g))
+
+    purities: list[float] = []
+    for _ in range(n_bootstrap):
+        sample: list[tuple[int, str]] = []
+        for cls in by_class:
+            pool = by_class[cls]
+            if not pool:
+                continue
+            sample.extend(rng.choices(pool, k=len(pool)))
+        gt_s = {tid: g for tid, g in sample}
+        purities.append(team_purity(predicted, gt_s)["overall_purity"])
+
+    purities.sort()
+    alpha = (1.0 - ci) / 2.0
+    lo_idx = int(alpha * n_bootstrap)
+    hi_idx = int((1.0 - alpha) * n_bootstrap) - 1
+    point = team_purity(predicted, gt)["overall_purity"]
+    return {
+        "overall_purity": point,
+        "ci_low": round(purities[lo_idx], 4),
+        "ci_high": round(purities[hi_idx], 4),
+        "ci_level": ci,
+        "n_bootstrap": n_bootstrap,
+    }

@@ -60,13 +60,26 @@ Outputs:
 - `outputs/<sequence>/figures/timeline_mog2.png` — sampled frames with boxes
 - `outputs/<sequence>/metrics.json` — MOG2 vs frame-diff precision @ IoU 0.3 on GT frames
 
-## Build milestone PDF
+## Build reports (LaTeX; local only, not in git)
+
+CVPR template files live in `latex/` (from [cvpr-org/author-kit](https://github.com/cvpr-org/author-kit)).
 
 ```bash
 pdflatex milestone.tex
+bash scripts/build_final_report.sh   # ablation plots + report_paths.tex, then pdflatex (CVPR format)
 ```
 
-Copy or symlink figures into `figures/` (see `milestone.tex`) after running the script.
+The final report is a **4-page main body** (Introduction, Related Work, Methodology, Results, Conclusion) plus references and a **Supplementary Figures** appendix. Non-essential visuals (MOG2 comparison, training curve, overlay strips) are in the appendix.
+
+## M3 ablations (final-report experiments)
+
+```bash
+python scripts/sweep_e2e_ablations.py   # ~2–3 h CPU: k-means k + 8 e2e configs
+python scripts/eval_learned_e2e.py      # includes bootstrap 95% CI on current checkpoint
+python scripts/update_report_ablations.py   # writes ablation_kmeans_k.png, ablation_e2e.png
+```
+
+Results land in `outputs/<sequence>/ablations/{kmeans_k.json,e2e_ablations.json}`; bar plots are written to `outputs/<sequence>/figures/`.
 
 ## Timeline (solo)
 

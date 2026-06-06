@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import config
-from src.eval_team import team_purity
+from src.eval_team import bootstrap_purity_ci, team_purity
 
 
 def main() -> None:
@@ -38,6 +38,8 @@ def main() -> None:
           f"{e2e_r['overall_purity']:.4f} ({e2e_r['n_correct']}/{e2e_r['n_labeled_tracks']})")
     print(f"  delta vs baseline:                  "
           f"{e2e_r['overall_purity'] - base_r['overall_purity']:+.4f}")
+    boot = bootstrap_purity_ci(e2e_pred, gt_clean)
+    print(f"  bootstrap 95% CI (e2e):             [{boot['ci_low']:.3f}, {boot['ci_high']:.3f}]")
     print()
     print("Per-class (e2e):")
     print(json.dumps(e2e_r["per_class"], indent=2))
